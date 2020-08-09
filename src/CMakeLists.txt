@@ -7,7 +7,7 @@ set (LIBS ${LIBS} curl)
 
 add_executable(fplan fplan.cpp fplan.h)
 target_link_libraries (fplan dl ${LIBS})
-INSTALL(PROGRAMS airport-frequencies.csv airports.csv runways.csv DESTINATION $ENV{HOME}/.fplan)
+INSTALL(PROGRAMS ../db/airport-frequencies.csv ../db/airports.csv ../db/runways.csv DESTINATION $ENV{HOME}/.fplan)
 INSTALL(
     TARGETS fplan
     RUNTIME DESTINATION bin

@@ -10,7 +10,10 @@ using namespace std;
 
 int main (int argc, char* argv[]) {
 	try {
-
+		cout << "load dbs..."; cout.flush();
+		CSV_data airports, frequencies, runways;
+		load_dbs (airports, frequencies, runways);
+		cout << "done" << endl;
 		Parameters p;
 		p.metars =  get_metar_taf ("KOAK", "metars");
 		for (unsigned i = 0; i < p.metars.size (); ++i) {

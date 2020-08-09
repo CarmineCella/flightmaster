@@ -266,7 +266,7 @@ std::vector<std::string> get_navaids (const std::string& station) {
     std::vector<std::string> info_vector;
     while (getline (t_stream, line)) {
         if (line.find ("VOR") != std::string::npos && line.find (",") == std::string::npos) {
-            int pos = line.size ();
+            // int pos = line.size ();
             // for (unsigned i = 3; i < line.size (); ++i) {
             //     if (isupper (line.at (i))) {
             //         pos = i;
@@ -279,6 +279,45 @@ std::vector<std::string> get_navaids (const std::string& station) {
     }
     return info_vector;
 }
+
+void load_dbs (CSV_data& airports, CSV_data& frequencies, CSV_data& runways) {
+    std::string airports_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airports.csv";
+    std::string frequencies_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airport-frequencies.csv";
+    std::string runways_db = (std::string) getenv("HOME") + (std::string) "/.fplan/runways.csv";
+
+	std::ifstream airports_in (airports_db.c_str());
+	if (!airports_in.good ()) throw std::runtime_error ("cannot load airports database");
+    std::ifstream frequencies_in (frequencies_db.c_str());
+	if (!frequencies_in.good ()) throw std::runtime_error ("cannot load frequencies database");
+    std::ifstream runways_in (runways_db.c_str());
+	if (!runways_in.good ()) throw std::runtime_error ("cannot load runways database");
+
+    airports = read_csv (airports_in);
+    frequencies = read_csv (frequencies_in);
+    runways = read_csv (runways_in);
+}
+std::vector<std::string> get_airport_info (const std::string& station, 
+    CSV_data& airports,
+    CSV_data& frequencies,
+    CSV_data& runways) {
+
+    std::stringstream info;
+    int idx = 0;
+    for (unsigned i = 0; i < airports.size (); ++i) {
+        if (airports.at (i).first == "ident") {
+            for (unsigned k = 0; k < airports.at (i).second.size (); ++k) {
+                if ( airports.at (i).second.at (k) == station) {
+                     idx = k;
+                     break;
+                }
+            }
+        }
+    }
+
+    std::vector<std::string> result;
+    return result;
+}
+
 
 #endif	// FPLAN_H 
 
