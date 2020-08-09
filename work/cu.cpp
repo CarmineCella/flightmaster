@@ -42,7 +42,7 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp) {
 }
 
 
-wstring trim(const std::wstring& str, const std::wstring& newline = L"\r\n") {
+string trim(const std::string& str, const std::string& newline = L"\r\n") {
     const auto strBegin = str.find_first_not_of(newline);
     if (strBegin == std::string::npos)
         return L""; // no content
@@ -53,21 +53,21 @@ wstring trim(const std::wstring& str, const std::wstring& newline = L"\r\n") {
     return str.substr(strBegin, strRange);
 }
 
-wstring HtmlToText(wstring htmlTxt) {
+string HtmlToText(string htmlTxt) {
 
     std::wregex stripFormatting(L"<[^>]*(>|$)"); //match any character between '<' and '>', even when end tag is missing
 
-    wstring s1 = std::regex_replace(htmlTxt, stripFormatting, L"");
-    wstring s2 = trim (s1);
-    wstring s3 = std::regex_replace (s2, std::wregex(L"\\&nbsp;"), L",");
+    string s1 = std::regex_replace(htmlTxt, stripFormatting, L"");
+    string s2 = trim (s1);
+    string s3 = std::regex_replace (s2, std::wregex(L"\\&nbsp;"), L",");
     return s3;
 }
 
-std::wstring stringToWstring(const std::string& t_str)
+std::string stringTostring(const std::string& t_str)
 {
     //setup converter
     typedef std::codecvt_utf8<wchar_t> convert_type;
-    std::wstring_convert<convert_type, wchar_t> converter;
+    std::string_convert<convert_type, wchar_t> converter;
 
     //use converter (.to_bytes: wstr->str, .from_bytes: str->wstr)
     return converter.from_bytes(t_str);
@@ -119,9 +119,9 @@ int main(void) {
 
         printf("%lu bytes retrieved\n", (unsigned long)chunk.size);
 
-      // wstringstream ttt;
+      // stringstream ttt;
       // ttt << chunk.memory;
-      wstring ww (stringToWstring((string)chunk.memory));
+      string ww (stringTostring((string)chunk.memory));
         wcout << HtmlToText (ww) << endl << endl << endl;
         // cout << chunk.memory << endl;
 
