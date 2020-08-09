@@ -3,6 +3,8 @@ project (fplan)
 
 SET(CMAKE_CXX_FLAGS "-Wall -g -O2 -std=c++11 -I . -Wno-return-type-c-linkage")
 
+set (LIBS ${LIBS} curl) 
+
 add_executable(fplan fplan.cpp fplan.h)
 target_link_libraries (fplan dl ${LIBS})
 INSTALL(PROGRAMS airport-frequencies.csv airports.csv runways.csv DESTINATION $ENV{HOME}/.fplan)

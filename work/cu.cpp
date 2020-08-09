@@ -42,8 +42,7 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp) {
 }
 
 
-wstring trim(const std::wstring& str, const std::wstring& newline = L"\r\n")
-{
+wstring trim(const std::wstring& str, const std::wstring& newline = L"\r\n") {
     const auto strBegin = str.find_first_not_of(newline);
     if (strBegin == std::string::npos)
         return L""; // no content
@@ -59,8 +58,8 @@ wstring HtmlToText(wstring htmlTxt) {
     std::wregex stripFormatting(L"<[^>]*(>|$)"); //match any character between '<' and '>', even when end tag is missing
 
     wstring s1 = std::regex_replace(htmlTxt, stripFormatting, L"");
-    wstring s2 = trim(s1);
-    wstring s3 = std::regex_replace(s2, std::wregex(L"\\&nbsp;"), L",");
+    wstring s2 = trim (s1);
+    wstring s3 = std::regex_replace (s2, std::wregex(L"\\&nbsp;"), L",");
     return s3;
 }
 
