@@ -1,0 +1,100 @@
+[COMPILED ON Mon Aug 10 2020 18:16:02 PDT]
+
+DEPARTURE: KOAK
+
+Date _________ Tach _________ Block _________
+
+Info _________ W/V  _________ QNH   _________
+
+Taxi _________ RWY  _________ T/O   _________
+
+LOG
+
+| FIX      | MC  | MH  | ALT     | NM  | NAVAIDS       |  ETE    |
+|----------|-----|-----|---------|-----|---------------|---------|
+| KLVK     | 083 | 081 | U 3500  | 20  | OAK r079/19.2 | 15.20*  |
+|          |     |     |         |     | SJC r001/20.0 |         |
+|----------|-----|-----|---------|-----|---------------|---------|
+| KO88     | 357 | 353 | U 4500  | 30  | SAC r188/16.6 | 20      |
+|          |     |     |         |     | CCR r044/18.4 |         |
+|----------|-----|-----|---------|-----|---------------|---------|
+|                          TANK                                  |
+|----------|-----|-----|---------|-----|---------------|---------|
+| KOAK     | 208 | 211 | _ 4500  | 37  | OAK  at field | 24.40   |
+|          |     |     |         |     | SFO r033/9.5  |         |
+|----------|-----|-----|---------|-----|---------------|---------|
+| Totals   |     |     |         | 87  |               | 60      |
+
+
+ARRIVAL: KOAK
+
+Info _________ W/V   _________ QNH  _________
+
+RWY  _________ Taxi  _________ Land _________
+
+Tach _________ Block _________
+
+AIRPORTS
+
+KOAK Metropolitan Oakland International Airport (elevation 9 ft)
+RWY 10L/28R (5458 x 150 ft)
+RWY 10R/28L (6213 x 150 ft)
+RWY 12/30 (10000 x 150 ft)
+RWY 15/33 (3376 x 75 ft)
+NORCAL APP 31.76 MHz
+NORCAL APP 125.35 MHz
+ATIS 133.775 MHz
+CLNC DEL 121.1 MHz
+NORCAL DEP 120.9 MHz
+GND 121.75 MHz
+OAKLAND RDO 122 MHz
+OAKLAND TWR 118.3 MHz
+UNICOM 122.95 MHz
+
+KLVK Livermore Municipal Airport (elevation 400 ft)
+RWY 07L/25R (5253 x 100 ft)
+RWY 07R/25L (2699 x 75 ft)
+NORCAL APP/DEP 123.85 MHz
+ATIS 119.65 MHz
+CTAF 118.1 MHz
+GND 121.6 MHz
+TWR 118.1 MHz
+UNICOM 122.95 MHz
+
+KO88 Rio Vista Municipal Airport (elevation 20 ft)
+RWY 07/25 (4200 x 75 ft)
+RWY 15/33 (2199 x 60 ft)
+NORCAL APP/DEP 125.25 MHz
+TRAVIS DEP 119.9 MHz
+CTAF/UNICOM 122.725 MHz
+
+NAVAIDS
+
+OAK OAKLAND VOR/DME 116.80
+SFO SAN FRANCISCO VOR/DME 115.80
+CCR CONCORD VOR/DME 117.00
+SJC SAN JOSE VOR/DME 114.10
+SAC SACRAMENTO VORTAC 115.20
+
+METARs
+
+KOAK 110053Z 31017G23KT 10SM FEW008 FEW015 19/14 A2990 RMK AO2 SLP123 
+T01940139
+
+TAFs
+
+KOAK 102330Z 1100/1206 31014KT P6SM SKC FM110300 31009KT P6SM FEW008 
+FM110900 31006KT P6SM BKN008 FM111700 29009KT P6SM FEW008 FM112100 
+29014KT P6SM SKC FM120300 29010KT P6SM SKC
+
+WINDS
+
+SFO 2711 2608+21 1807+16 1311+08 1114-10 1412-21 130937 201545 233852
+
+INFO
+
+* cruise speed 90 kts
+* average fuel per hour 18 lt/gal
+* minimum fuel: 14 lt/gal (NB: legs only)
+* WCAmax (90 at 10 kts): 6
+* magnetic variation: 13 E

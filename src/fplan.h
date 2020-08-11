@@ -5,6 +5,7 @@
 #define FPLAN_H 
 
 #include <curl/curl.h>
+#include <sys/stat.h>
 
 #include <stdexcept>
 #include <memory>
@@ -18,6 +19,14 @@
 #include <map>
 
 #include <cmath>
+#include <cstdio>
+
+#define BOLDWHITE   "\033[1m\033[37m"
+#define BOLDCYAN    "\033[1m\033[36m"
+#define BOLDYELLOW  "\033[1m\033[33m"
+#define BOLDBLUE    "\033[1m\033[34m"
+#define RED     	"\033[31m" 
+#define RESET   	"\033[0m"
 
 struct MemoryStruct {
     char *memory;
@@ -42,8 +51,13 @@ size_t write_mem_callback (void *contents, size_t size, size_t nmemb, void *user
     return realsize;
 }
 
-std::string fetch_url_data (const std::string url) {
-CURL *curl_handle;
+size_t write_data_callback (void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    size_t written = fwrite (ptr, size, nmemb, stream);
+    return written;
+}
+
+std::string fetch_url_data (const std::string&  url) {
+    CURL *curl_handle;
     CURLcode res;
 
     struct MemoryStruct chunk;
@@ -62,9 +76,7 @@ CURL *curl_handle;
     res = curl_easy_perform(curl_handle);
 
     std::stringstream data;
-    if (res != CURLE_OK) {
-        throw std::runtime_error ("unable to fetch online data");
-    } else {
+    if (res == CURLE_OK) {
         data << chunk.memory;
     }
 
@@ -74,6 +86,24 @@ CURL *curl_handle;
     return data.str ();
 }
 
+bool download_file (const std::string& url, const std::string& outfilename) {
+    CURL *curl_handle = curl_easy_init();
+    if (curl_handle) {
+        FILE *fp = fopen (outfilename.c_str (),"wb");
+        if (fp == 0) return false;
+
+        curl_easy_setopt (curl_handle, CURLOPT_URL, url.c_str ());
+        curl_easy_setopt (curl_handle, CURLOPT_WRITEFUNCTION, write_data_callback);
+        curl_easy_setopt (curl_handle, CURLOPT_WRITEDATA, fp);
+        CURLcode res = curl_easy_perform (curl_handle);
+
+        curl_easy_cleanup(curl_handle);
+        fclose(fp);
+        if (res != CURLE_OK) return false;
+        else return true;
+    }
+    return false;
+}
 std::string trim (const std::string& str, const std::string& newline = "\r\n") {
     const auto strBegin = str.find_first_not_of (newline);
     if (strBegin == std::string::npos)  return ""; // no content
@@ -90,43 +120,6 @@ std::string html2text (std::string htmlTxt) {
     std::string s3 = std::regex_replace (s2, std::regex("\\&nbsp;"), ",");
     return s3;
 }
-
-struct Fix {
-    // input
-    std::string name;
-    int true_course;
-    double distance;
-    std::string wind_station;
-
-    // output
-    int true_heading;
-    int magnetic_course;
-    int magnetic_heading;
-    std::string ETE;
-
-    // fetch
-    std::vector<std::string> navaids;
-    std::string winds_aloft;
-};
-
-struct Parameters {
-    // input
-    std::string departure;
-    double cruise_IAS;
-    double fuel_per_hour;
-    double magnetic_variation;
-    std::vector<Fix> fixes;
-    std::vector<std::string> custom_frequencies;
-
-    // output
-    double total_miles;
-    double total_time;
-
-    // fetch
-    std::vector<std::string> airports;
-    std::vector<std::string> metars;
-    std::vector<std::string> tafs;
-};
 
 std::string quote (const std::string input) {
     return (std::string) "\"" + input + (std::string) "\"";
@@ -166,7 +159,7 @@ CSV_data read_csv (std::istream& input){
         int colIdx = 0;
         while (std::getline (ss, val, ',')){
             result.at (colIdx).second.push_back(val);
-            //if (ss.peek () == ',') ss.ignore ();
+            // if (ss.peek () == ',') ss.ignore ();
             colIdx++;
             if (colIdx >= result.size ()) break;
         }
@@ -177,9 +170,13 @@ CSV_data read_csv (std::istream& input){
 
 std::vector<std::string>& get_csv_column (const std::string& colname, CSV_data& matrix) {
     for (unsigned int i = 0; i < matrix.size (); ++i) {
-        if (matrix.at (i).first == quote (colname)) return matrix.at (i).second;
+        if (matrix.at (i).first == quote (colname)) {
+            return matrix.at (i).second;
+        }
     }
-    throw std::runtime_error ("invalid CSV column requested");
+    // throw std::runtime_error ("invalid CSV column requested");
+    std::vector<std::string> v {};
+    return v;
 }
 
 std::vector<int> get_csv_rows_by_key (const std::string& colname, const std::string& key, CSV_data& matrix) {
@@ -190,8 +187,189 @@ std::vector<int> get_csv_rows_by_key (const std::string& colname, const std::str
             idx.push_back (i);
         }
     }
-    if (idx.size () == 0) throw std::runtime_error ("CSV key not found");
+    // if (idx.size () == 0) throw std::runtime_error ("CSV key not found");
     return idx;
+}
+
+std::string get_file_date (const std::string& filename) {
+    struct stat t_stat;
+    stat (filename.c_str (), &t_stat);
+    struct tm* timeinfo = localtime (&t_stat.st_ctime); // or gmtime() depending on what you want
+    std::stringstream date;
+    date << timeinfo->tm_mon << "/" << timeinfo->tm_mday << "/" << 1900 + timeinfo->tm_year;
+    return date.str ();
+}
+
+// ---------------------------------------------
+class FlightLog;
+
+struct Fix {
+    // input
+    std::string name;
+    int true_course;
+    double distance;
+    std::string wind_station;
+    std::vector<std::string> navaids; // can be fetched
+
+private:
+    // output
+    int true_heading;
+    int magnetic_course;
+    int magnetic_heading;
+    std::string ETE;
+    double fuel;
+    friend class FlightLog;
+
+    // fetch
+    std::string winds_aloft;
+};
+
+struct Airport {
+    std::string info;
+    std::vector<std::string> runways;
+    std::vector<std::string> frequencies;
+};
+
+struct Parameters {
+    // input
+    std::string departure;
+    double cruise_IAS;
+    double fuel_per_hour;
+    double magnetic_variation;
+    std::vector<Fix> fixes;
+    std::vector<std::string> custom;
+    friend class FlightLog;
+
+private:
+    // output
+    double total_miles;
+    double total_time;
+
+    // fetch
+    std::vector<Airport> airports;
+    std::vector<std::string> metars;
+    std::vector<std::string> tafs;
+    std::vector<std::string> navaids;
+};
+
+class FlightLog;
+
+class FlightLog {
+public:
+	FlightLog () {	}
+	virtual ~FlightLog () {
+	}
+	void config () {
+		// for (unsigned i = 0; i < m_legs.size (); ++i) {
+		// 	m_legs[i]->eta = (m_legs[i]->miles / m_speed) * 60.;
+		// 	if (i == 0 || 
+		// 		m_legs[i - 1]->altitude == 0) {
+		// 		m_legs[i]->eta += 2; // takeoff
+		// 	}	
+		// 	m_legs[i]->fuel = (m_legs[i]->eta * m_lt_per_hour) / 60.;
+		// }
+	}
+	std::string time () const {
+		double time = 0;
+        // FIXME
+        double sec = (time - (int) time) * 60.;
+        if (sec == 60) {
+            time += 1;
+            sec = 0;
+        }
+		std::stringstream ttime;
+		ttime << (int) time;        
+		if (fmod (sec, 60) != 0) ttime << "." << sec;
+		return ttime.str ();
+	}
+	double miles () const {
+		double miles = 0;
+		return miles;
+	}
+	double fuel () const {
+		double fuel = 0;
+		return fuel;
+	}	
+	std::ostream& dump (std::ostream& out) {
+		return out;
+	}
+};
+
+// ----------------------------------------------
+void update_dbs (std::ostream& out) {
+    mkdir (((std::string) getenv("HOME") + (std::string) "/.fplan/").c_str (), 0777);
+    std::string airports_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airports.csv";
+    std::string frequencies_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airport-frequencies.csv";
+    std::string runways_db = (std::string) getenv("HOME") + (std::string) "/.fplan/runways.csv";
+    std::string navaids_db = (std::string) getenv("HOME") + (std::string) "/.fplan/navaids.csv";
+
+    out << "downloading airports......"; out.flush ();
+	if (!download_file ("https://ourairports.com/data/airports.csv", airports_db)) {
+        out << RED << "failed" << std::endl;
+    } else {
+        out << "latest " << get_file_date (airports_db)<< std::endl;
+    }
+    out << "downloading frequencies..."; out.flush ();
+    if (!download_file ("https://ourairports.com/data/airport-frequencies.csv", frequencies_db)) {
+        out << RED << "failed" << std::endl;
+    } else {
+        out << "latest " << get_file_date (frequencies_db)<< std::endl;
+    }
+    out << "downloading runways......."; out.flush ();
+    if (!download_file ("https://ourairports.com/data/runways.csv", runways_db)) {
+        out << RED << "failed" << std::endl;
+    } else {
+        out << "latest " << get_file_date (runways_db)<< std::endl;
+    }
+    out << "downloading navaids......."; out.flush ();    
+    if (!download_file ("https://ourairports.com/data/navaids.csv", navaids_db)) {
+        out << RED << "failed" << std::endl;
+    } else {
+        out << "latest " << get_file_date (navaids_db)<< std::endl;
+    }
+    out << std::endl;
+}
+void load_dbs (std::ostream& out, 
+    CSV_data& airports, CSV_data& frequencies, CSV_data& runways, CSV_data& navaids) {
+    std::string airports_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airports.csv";
+    std::string frequencies_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airport-frequencies.csv";
+    std::string runways_db = (std::string) getenv("HOME") + (std::string) "/.fplan/runways.csv";
+    std::string navaids_db = (std::string) getenv("HOME") + (std::string) "/.fplan/navaids.csv";
+
+    out <<  RESET << "loading airports......"; out.flush ();
+    std::ifstream airports_in (airports_db.c_str());
+	if (!airports_in.good ()) {
+        out << RED << "failed" << std::endl;
+    } else {
+        out  << "latest " << get_file_date (airports_db)<< std::endl;
+    }
+    out <<  RESET << "loading frequencies..."; out.flush ();
+    std::ifstream frequencies_in (frequencies_db.c_str());
+    if (!frequencies_in.good ()) {
+        out << RED << "failed" << std::endl;
+    } else {
+        out  << "latest " << get_file_date (frequencies_db)<< std::endl;
+    }
+    out <<  RESET << "loading runways......."; out.flush ();
+    std::ifstream runways_in (runways_db.c_str());
+    if (!runways_in.good ()) {
+        out << RED << "failed" << std::endl;
+    } else {
+        out << "latest " << get_file_date (runways_db)<< std::endl;
+    }
+    out <<  RESET << "loading navaids......."; out.flush ();    
+    std::ifstream navaids_in (navaids_db.c_str());
+    if (!navaids_in.good ()) {
+        out << RED << "failed" << std::endl;
+    } else {
+        out  << "latest " << get_file_date (navaids_db)<< std::endl;
+    }
+    out <<  RESET << std::endl;
+
+    airports = read_csv (airports_in);
+    frequencies = read_csv (frequencies_in);
+    runways = read_csv (runways_in);
+    navaids = read_csv (navaids_in);
 }
 
 std::vector<std::string> get_metar_taf (const std::string station, const std::string& source) {
@@ -240,7 +418,7 @@ std::string get_winds_aloft (const std::string station) {
     return result;
 }
 
-void get_wind_info (const std::string& winds_aloft, double altitude, int& direction, int& speed) {
+bool get_wind_info (const std::string& winds_aloft, double altitude, int& direction, int& speed) {
     //FT  3000    6000    9000   12000   18000   24000  30000  34000  39000
     //SFO 9900 0706+20 0909+15 1114+09 0618-07 0424-20 062636 062347 051857
 
@@ -251,16 +429,17 @@ void get_wind_info (const std::string& winds_aloft, double altitude, int& direct
     else if (altitude >= 12000 && altitude < 18000) ipos = 25;
     else if (altitude >= 18000 && altitude < 24000) ipos = 33; 
     else if (altitude >= 24000 && altitude < 30000) ipos = 41; 
-    else throw std::runtime_error ("unsupported alitude for wind correction");
+    else return false;
     
     direction = atol (winds_aloft.substr (ipos, 2).c_str ());
     speed = atol (winds_aloft.substr (ipos + 2, 2).c_str ());
-    if (direction == 99) return;
+    if (direction == 99) return true;
     if (direction >= 51) {
         direction -= 50;
         speed += 100;
     }
     direction *= 10;
+    return true;
 }
 
 int compute_wind_correction (int wind_direction, int wind_speed, int IAS, int intended_course) {
@@ -313,36 +492,22 @@ std::vector<std::string> get_navaids (const std::string& station) {
     return info_vector;
 }
 
-void load_dbs (CSV_data& airports, CSV_data& frequencies, CSV_data& runways) {
-    std::string airports_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airports.csv";
-    std::string frequencies_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airport-frequencies.csv";
-    std::string runways_db = (std::string) getenv("HOME") + (std::string) "/.fplan/runways.csv";
-
-	std::ifstream airports_in (airports_db.c_str());
-	if (!airports_in.good ()) throw std::runtime_error ("cannot load airports database");
-    std::ifstream frequencies_in (frequencies_db.c_str());
-	if (!frequencies_in.good ()) throw std::runtime_error ("cannot load frequencies database");
-    std::ifstream runways_in (runways_db.c_str());
-	if (!runways_in.good ()) throw std::runtime_error ("cannot load runways database");
-
-    airports = read_csv (airports_in);
-    frequencies = read_csv (frequencies_in);
-    runways = read_csv (runways_in);
-}
-
-std::vector<std::string> get_airport_info (const std::string& station, 
+Airport get_airport_info (const std::string& station, 
     CSV_data& airports,
     CSV_data& frequencies,
     CSV_data& runways) {
 
-    std::vector<std::string> result;
+    std::vector<Airport> result;
+    Airport apt;
+
     std::stringstream r;
     std::vector<int> idx = get_csv_rows_by_key ("ident", quote (station), airports);
+    if (idx.size () == 0) return apt;
+    
     r << unquote (get_csv_column ("ident", airports).at (idx.at (0))) 
         << " (" << unquote (get_csv_column ("name", airports).at (idx.at (0))) 
         << ") - elevation (ft): " << get_csv_column ("elevation_ft", airports).at (idx.at (0));
-    std::cout << r.str () << std::endl;
-    result.push_back (r.str ());
+    apt.info = r.str ();
     
     idx.clear ();
     idx = get_csv_rows_by_key ("airport_ident", quote (station), runways);
@@ -352,8 +517,7 @@ std::vector<std::string> get_airport_info (const std::string& station,
             << unquote (get_csv_column ("he_ident", runways).at (idx.at (i))) << " (" 
             <<  get_csv_column ("length_ft", runways).at (idx.at (i)) << " x " 
             << get_csv_column ("width_ft", runways).at (idx.at (i)) << " ft)";
-        std::cout << r.str () << std::endl;
-        result.push_back (r.str ());
+        apt.runways.push_back (r.str ());
     }
 
     idx.clear ();
@@ -362,10 +526,9 @@ std::vector<std::string> get_airport_info (const std::string& station,
         std::stringstream r; // local
         r << unquote (get_csv_column ("description", frequencies).at (idx.at (i))) << " "
             << get_csv_column ("frequency_mhz", frequencies).at (idx.at (i)) << " MHz";
-        std::cout << r.str () << std::endl;
-        result.push_back (r.str ());
+        apt.frequencies.push_back (r.str ());
     }
-    return result;
+    return apt;
 }
 
 
