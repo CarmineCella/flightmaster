@@ -24,9 +24,9 @@ int main (int argc, char* argv[]) {
 		cout << w << endl;
 		int dir, speed;
 		get_wind_info (w, 24000, dir, speed);
-		cout << dir << ", " << speed << endl;
+		cout << "wind: " << dir << ", " << speed << endl;
 
-		cout << compute_wind_correction (dir, speed, 100, 305) << endl;
+		cout << "wind correction: 305@100Kts -> " << compute_wind_correction (dir, speed, 100, 305) << endl;
 
 		Fix f;
 
@@ -34,6 +34,10 @@ int main (int argc, char* argv[]) {
 		for (unsigned i = 0; i < 	f.navaids.size (); ++i) {
 			std::cout <<	f.navaids.at (i) << std::endl;
 		}		
+
+		get_airport_info ("KOAK", airports, frequencies, runways);
+
+		get_airport_info ("KO88", airports, frequencies, runways);
 	}
 	catch (exception& e) {
 		cout << "Error: " << e.what () << endl;

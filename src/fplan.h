@@ -15,6 +15,7 @@
 #include <utility>
 #include <fstream>
 #include <codecvt>
+#include <map>
 
 #include <cmath>
 
@@ -127,29 +128,19 @@ struct Parameters {
     std::vector<std::string> tafs;
 };
 
-int compute_wind_correction (int wind_direction, int wind_speed, int IAS, int intended_course) {
-    double indended_course_rad = M_PI * (double) intended_course / 180.; // keep all in radians internally
-    double wind_direction_rad = M_PI * (double) wind_direction  / 180. + M_PI;
-    
-    if (wind_direction_rad > M_PI) wind_direction_rad = wind_direction_rad - 2. * M_PI;
-  
-    double WT_angle = (indended_course_rad - wind_direction_rad);
-    if (WT_angle > M_PI)  WT_angle = WT_angle - 2. * M_PI;
-    if (WT_angle < -M_PI) WT_angle = WT_angle + 2. * M_PI;
-    
-    double sin_WCA = (double) wind_speed * sin (WT_angle) / (double) IAS;
-    if (fabs (sin_WCA) < 1.) {
-        double WCA = asin (sin_WCA);
-        double heading_rad = indended_course_rad + WCA;
-        while (heading_rad > 2. * M_PI) heading_rad = heading_rad - 2. * M_PI;
-        while (heading_rad < 0.) heading_rad = heading_rad + 2. * M_PI;
-        return (int) (180. * heading_rad / M_PI); // convert in degrees
-    }
-
-    throw std::runtime_error ("invalid wind parameters");
+std::string quote (const std::string input) {
+    return (std::string) "\"" + input + (std::string) "\"";
+}
+ 
+std::string unquote (const std::string input) {
+    std::string s = input;
+    s.erase (
+        remove (s.begin (), s.end (), '\"'), s.end ());
+    return s;
 }
 
 typedef std::vector<std::pair<std::string, std::vector<std::string>>> CSV_data;
+// typedef std::map<std::string, std::vector<std::string>> CSV_data;
 
 CSV_data read_csv (std::istream& input){
     // read a CSV file into a vector of <string, vector<string>> pairs where
@@ -164,7 +155,7 @@ CSV_data read_csv (std::istream& input){
 
     // extract each column name
     while (std::getline (ss, colname, ',')) {
-        if (colname.size ()) result.push_back ({colname, std::vector<std::string> {}});
+        result.push_back({colname, std::vector<std::string> {}});
     }
    
    if (result.size () < 1) return result;
@@ -174,14 +165,33 @@ CSV_data read_csv (std::istream& input){
         std::stringstream ss (line);
         int colIdx = 0;
         while (std::getline (ss, val, ',')){
-            result.at (colIdx).second.push_back (val);
-            if (ss.peek () == ',') ss.ignore ();
+            result.at (colIdx).second.push_back(val);
+            //if (ss.peek () == ',') ss.ignore ();
             colIdx++;
             if (colIdx >= result.size ()) break;
         }
     }
 
     return result;
+}
+
+std::vector<std::string>& get_csv_column (const std::string& colname, CSV_data& matrix) {
+    for (unsigned int i = 0; i < matrix.size (); ++i) {
+        if (matrix.at (i).first == quote (colname)) return matrix.at (i).second;
+    }
+    throw std::runtime_error ("invalid CSV column requested");
+}
+
+std::vector<int> get_csv_rows_by_key (const std::string& colname, const std::string& key, CSV_data& matrix) {
+    std::vector<int> idx;
+    std::vector<std::string> col = get_csv_column (colname, matrix);
+    for (unsigned i = 0; i < col.size (); ++i) {
+        if (col.at (i) == key) {
+            idx.push_back (i);
+        }
+    }
+    if (idx.size () == 0) throw std::runtime_error ("CSV key not found");
+    return idx;
 }
 
 std::vector<std::string> get_metar_taf (const std::string station, const std::string& source) {
@@ -253,6 +263,28 @@ void get_wind_info (const std::string& winds_aloft, double altitude, int& direct
     direction *= 10;
 }
 
+int compute_wind_correction (int wind_direction, int wind_speed, int IAS, int intended_course) {
+    double indended_course_rad = M_PI * (double) intended_course / 180.; // keep all in radians internally
+    double wind_direction_rad = M_PI * (double) wind_direction  / 180. + M_PI;
+    
+    if (wind_direction_rad > M_PI) wind_direction_rad = wind_direction_rad - 2. * M_PI;
+  
+    double WT_angle = (indended_course_rad - wind_direction_rad);
+    if (WT_angle > M_PI)  WT_angle = WT_angle - 2. * M_PI;
+    if (WT_angle < -M_PI) WT_angle = WT_angle + 2. * M_PI;
+    
+    double sin_WCA = (double) wind_speed * sin (WT_angle) / (double) IAS;
+    if (fabs (sin_WCA) < 1.) {
+        double WCA = asin (sin_WCA);
+        double heading_rad = indended_course_rad + WCA;
+        while (heading_rad > 2. * M_PI) heading_rad = heading_rad - 2. * M_PI;
+        while (heading_rad < 0.) heading_rad = heading_rad + 2. * M_PI;
+        return (int) (180. * heading_rad / M_PI); // convert in degrees
+    }
+
+    throw std::runtime_error ("invalid wind parameters");
+}
+
 std::vector<std::string> get_navaids (const std::string& station) {
     std::stringstream query;
     query << "https://www.airnav.com/airport/" << station;
@@ -266,15 +298,16 @@ std::vector<std::string> get_navaids (const std::string& station) {
     std::vector<std::string> info_vector;
     while (getline (t_stream, line)) {
         if (line.find ("VOR") != std::string::npos && line.find (",") == std::string::npos) {
-            // int pos = line.size ();
-            // for (unsigned i = 3; i < line.size (); ++i) {
-            //     if (isupper (line.at (i))) {
-            //         pos = i;
-            //         break;
-            //     }
-            // }
-            // info_vector.push_back (line.substr (0, pos));
-             info_vector.push_back (line);
+            int pos = line.size ();
+            for (unsigned i = 3; i < line.size (); ++i) {
+                if (isupper (line.at (i))) {
+                    pos = i;
+                    break;
+                }
+            }
+            std::stringstream fline;
+            fline << line.substr (0, 3) << " " << line.substr (3, pos - 3) << " " << line.substr (pos, line.size () - pos);
+            info_vector.push_back (fline.str ());
         }
     }
     return info_vector;
@@ -296,25 +329,42 @@ void load_dbs (CSV_data& airports, CSV_data& frequencies, CSV_data& runways) {
     frequencies = read_csv (frequencies_in);
     runways = read_csv (runways_in);
 }
+
 std::vector<std::string> get_airport_info (const std::string& station, 
     CSV_data& airports,
     CSV_data& frequencies,
     CSV_data& runways) {
 
-    std::stringstream info;
-    int idx = 0;
-    for (unsigned i = 0; i < airports.size (); ++i) {
-        if (airports.at (i).first == "ident") {
-            for (unsigned k = 0; k < airports.at (i).second.size (); ++k) {
-                if ( airports.at (i).second.at (k) == station) {
-                     idx = k;
-                     break;
-                }
-            }
-        }
+    std::vector<std::string> result;
+    std::stringstream r;
+    std::vector<int> idx = get_csv_rows_by_key ("ident", quote (station), airports);
+    r << unquote (get_csv_column ("ident", airports).at (idx.at (0))) 
+        << " (" << unquote (get_csv_column ("name", airports).at (idx.at (0))) 
+        << ") - elevation (ft): " << get_csv_column ("elevation_ft", airports).at (idx.at (0));
+    std::cout << r.str () << std::endl;
+    result.push_back (r.str ());
+    
+    idx.clear ();
+    idx = get_csv_rows_by_key ("airport_ident", quote (station), runways);
+    for (unsigned i = 0; i < idx.size (); ++i) {
+        std::stringstream r; // local
+        r << "RWY " <<  unquote (get_csv_column ("le_ident", runways).at (idx.at (i))) << "/" 
+            << unquote (get_csv_column ("he_ident", runways).at (idx.at (i))) << " (" 
+            <<  get_csv_column ("length_ft", runways).at (idx.at (i)) << " x " 
+            << get_csv_column ("width_ft", runways).at (idx.at (i)) << " ft)";
+        std::cout << r.str () << std::endl;
+        result.push_back (r.str ());
     }
 
-    std::vector<std::string> result;
+    idx.clear ();
+    idx = get_csv_rows_by_key ("airport_ident", quote (station), frequencies);
+    for (unsigned i = 0; i < idx.size (); ++i) {
+        std::stringstream r; // local
+        r << unquote (get_csv_column ("description", frequencies).at (idx.at (i))) << " "
+            << get_csv_column ("frequency_mhz", frequencies).at (idx.at (i)) << " MHz";
+        std::cout << r.str () << std::endl;
+        result.push_back (r.str ());
+    }
     return result;
 }
 
