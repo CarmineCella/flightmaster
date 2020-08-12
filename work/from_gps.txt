@@ -1,0 +1,29 @@
+Here’s another method;
+
+Distance & Azimuth from Position to Destination
+
+Distance = 90 – Sin-1(sin(Destination Latitude) x sin(Your present Latitude) + cos(Destination Latitude) x cos(Your present Latitude) x cos(Difference in Longitude between Your Location and Destination Location)
+
+Multiply answer by 60 to get Nautical miles.
+
+Another way
+
+Distance = 60 x Cos-1(sin(Destination Latitude) x sin(Your present Latitude) + cos(Destination Latitude) x cos(Your present Latitude) x cos(Difference in Longitude between Your Location and Destination Location)
+
+Azimuth to Destination
+
+NOTE- LHA= Present Longitude – Destination Longitude
+
+Z = tan-1(sin (LHA) / (cos (LHA) x sin(Your present Latitude) – cos(Your present Latitude) x tan(Destination Latitude))
+
+Then to put Z into the right quadrant, apply the following rules-
+
+If answer is negative, add 180º to Z
+LHA is NEGATIVE if it’s less than 180º .
+
+Another way
+
+tan-1(sin(LHA) / (cos(Present Latitude) x tan(Destination Latitude) – (sin(Present Latitude) x cos(LHA))
+-continued on next page-
+If LHA is greater than 180 it’s treated as a negative quantity.
+If the Azimuth angle as calculated is negative, add 180 to it.

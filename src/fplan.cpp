@@ -8,7 +8,9 @@
 
 using namespace std;
 
-#define VERSION 0.1
+#define VERSION 0.5
+
+// TODO: custom winds (183,23), automatic bearing and distance from GPS. fractional miles
 
 int main (int argc, char* argv[]) {
 	cout << BOLDYELLOW << "[fplan, ver. " << VERSION << "]" << endl << endl;
@@ -26,7 +28,7 @@ int main (int argc, char* argv[]) {
 								"fplan metars KOAK\n"\
 								"fplan tafs KLVK\n"\
 								"fplan winds SFO LAS\n"\
-								"fplan info LIPY LIDF LIPB\n"\
+								"fplan info LIPY LIDF LIPE\n"\
 								"fplan flog my_flight.txt flightlog.txt\n\n");
 		}
 		std::string command = argv[1];
@@ -56,32 +58,57 @@ int main (int argc, char* argv[]) {
 
 				for (unsigned i = 2; i < argc; ++i) {
 					Airport a1 = get_airport_info (argv[i], airports, frequencies, runways);
-					cout << a1.info << endl;
-					for (unsigned i = 0; i < a1.runways.size (); ++i) {
-						cout << a1.runways.at (i) << endl;
-					}
-					for (unsigned i = 0; i < a1.frequencies.size (); ++i) {
-						cout << a1.frequencies.at (i) << endl;
-					}
-					cout << endl;       
+					if (a1.info.size ()) {
+						cout << a1.info << endl;
+						for (unsigned i = 0; i < a1.runways.size (); ++i) {
+							cout << a1.runways.at (i) << endl;
+						}
+						for (unsigned i = 0; i < a1.frequencies.size (); ++i) {
+							cout << a1.frequencies.at (i) << endl;
+						}
+						cout << endl;       
+					} else {
+						std::vector<std::string> navaids_info = get_navaid_info (argv[i], navaids);
+						if (navaids_info.size () == 0) {
+							throw runtime_error ("cannot find specified station");
+						}
+
+						for (unsigned i = 0; i < navaids_info.size (); ++i) {
+							cout << navaids_info.at (i) << endl;
+						}
+						cout << endl;
+					} 
 				}
 			}
 		} else if (command == "flog") {
 			if (argc != 4) {
 				throw runtime_error ("required syntax is 'flog input.txt output.txt");
 			}
+
+			Parameters p;
+			load_dbs (cout, p.airports_db, p.frequencies_db, p.runways_db, p.navaids_db);
+			cout << "configuring..." << std::endl; cout.flush ();
+			read_config (argv[2], p, cout);
+			cout << endl;
+
+			std::string flog = compile_flight(p, cout);
+			cout << endl;
+
+			ofstream out (argv[3]);
+			if (!out.good ()) {
+				throw runtime_error ("cannot create output file");
+			}
+			out << flog << std::endl;
+
 		} else {
 			throw runtime_error ("invalid command specified");
 		}
-
-		Parameters p;
-
 	}
 	catch (exception& e) {
-		cout << "Error: " << e.what () << endl;
+		cout << RED <<  "error: " << e.what () << RESET << endl << endl;
 	}
 	catch (...) {
-		cout << "Fatal error: unknown exception" << endl;
+		cout << RED << "fatal error: unknown exception" << RESET << endl << endl;
 	}
 	return 0;
 }
