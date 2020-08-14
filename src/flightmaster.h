@@ -145,8 +145,7 @@ void update_dbs (std::ostream& out) {
     }
     out << std::endl << std::endl;
 
-    out << BOLDCYAN << "warning: the US waypoints database (FIX.txt) needs to be manually updated\n"
-        << "from https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/" << RESET << std::endl << std::endl;
+    out << BOLDCYAN << "warning: user waypoint databases need to be manually updated\n" << RESET << std::endl << std::endl;
 }
 void load_dbs (std::ostream& out, 
     CSV_data& airports, CSV_data& frequencies, CSV_data& runways, CSV_data& navaids) {
@@ -610,13 +609,13 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
             double delta_dist = fabs (haversine_mi (prev_lat, prev_long, apt.lat, apt.longit) - f.distance);
             if (delta_dist > 10) {
                 std::cout << BOLDCYAN << "warning: specified distance differs from calulated (" 
-                    << haversine_mi (prev_lat, prev_long, apt.lat, apt.longit) << " vs " << f.distance << ")" << RESET << std::endl;            
+                    << f.distance  << " vs " <<  haversine_mi (prev_lat, prev_long, apt.lat, apt.longit) << ")" << RESET << std::endl;            
             }
             int tc = bearing_from_gps (prev_lat, prev_long, apt.lat, apt.longit);
             double delta_bearing = fabs (tc - f.true_course);
             if (delta_bearing > 10) {
                 std::cout << BOLDCYAN << "warning: true course differs from calulated (" 
-                   <<  tc << " vs " << f.magnetic_course << ")" << RESET << std::endl;            
+                   <<  f.magnetic_course << " vs " << tc << ")" << RESET << std::endl;            
             }
         }
 

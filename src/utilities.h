@@ -24,6 +24,8 @@
 #include <cmath>
 #include <cstdio>
 
+#define VERSION 0.5
+
 #define BOLDWHITE   "\033[1m\033[37m"
 #define BOLDCYAN    "\033[1m\033[36m"
 #define BOLDYELLOW  "\033[1m\033[33m"

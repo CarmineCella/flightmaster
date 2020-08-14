@@ -9,13 +9,12 @@
 
 using namespace std;
 
-#define VERSION 0.5
-
 // TODO: custom winds (183,23), FIX.txt, custom waypoints.csv, weight & balance
 
 int main (int argc, char* argv[]) {
 	cout << BOLDYELLOW << "[flightmaster, ver. " << VERSION << "]" << endl << endl;
-	cout << RESET << "(c) 2020, www.carminecella.com" << endl << endl;
+	cout  << RESET << "easy flight planning" << endl;
+	cout << "(c) 2020, www.carminecella.com" << endl << endl;
 
 	try {
 		if (argc < 2) {
@@ -34,7 +33,7 @@ int main (int argc, char* argv[]) {
 								"flightmaster info LIDF\n"\
 								"flightmaster flog my_flight.txt flightlog.txt\n"\
 								"flightmaster xwind 06 100 8\n"\
-								"flightmaster rwcorr 270 100 100 10\n");
+								"flightmaster wcorr 270 100 100 10\n");
 		}
 		std::string command = argv[1];
 
@@ -65,6 +64,7 @@ int main (int argc, char* argv[]) {
 					Airport a1 = get_airport_info (argv[i], airports, frequencies, runways);
 					if (a1.info.size ()) {
 						cout << a1.info << endl;
+						cout << "coordinates: " << a1.lat << ", " << a1.longit << endl;
 						for (unsigned i = 0; i < a1.runways.size (); ++i) {
 							cout << a1.runways.at (i) << endl;
 						}
