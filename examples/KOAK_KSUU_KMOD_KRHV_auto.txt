@@ -12,13 +12,12 @@ magnetic_variation 13 E
 
 ;  name  TC   ALT   NM   winds navaids
 fix KCCR auto 3500  auto  SFO   KCCR
-fix KSUU auto 5500  auto  SFO   KSUU
-fix KO88 auto 5500  auto  SFO   O88
+fix KSUU auto 5500  auto  SAC   KSUU
+fix KO88 auto 5500  auto  SAC   O88
 fix KSCK auto 5500  auto  SFO   KSCK
 fix KMOD auto 5500  auto  SFO   KMOD
 fix KRHV auto 4500  auto  SFO   KRHV 
 fix KNUQ auto 2500  auto  SFO   KNUQ
-fix KNUQ auto 2500  auto  SFO   KOAK
 
 ; TC and NM can be either a value or auto
 ; winds can be either a station name (eg. SFO, LAS, ...) or 'none'

@@ -475,6 +475,7 @@ void set_parameter (std::deque<std::string>& tokens, Parameters& p, std::ostream
             }        
         }
         f.wind_station = tokens[5];
+        std::cout << "<<<< " << f.wind_station << std::endl;
         if (f.wind_station != "none") {
             f.winds_aloft = get_winds_aloft (f.wind_station);
             if (f.winds_aloft.size () == 0) {
@@ -584,7 +585,7 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
     double prev_long = apt.longit;
 
     int prev_altitude = 0;
-    int prev_fuel_check = 0;
+    // int prev_fuel_check = 0;
     std::set<std::string> navaids_list;
     std::set<std::string> airports_list;
     std::set<std::string> winds_list;
@@ -649,24 +650,23 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
         flight_log << "|" << std::setw (6) << std::fixed <<  std::setprecision (1) <<  f.distance << " ";
         if (f.navaids.size () == 0) flight_log  << "|               ";
         else flight_log << "|" << std::setw (14) << f.navaids.at (0) << " ";
-        flight_log << "| " << std::setw (8) << string_time (f.ETE);
-        if (ground_speed != 0) flight_log << "*|" << std::endl;
-        else flight_log << " |" << std::endl;
+        flight_log << "| " << std::setw (8) << string_time (f.ETE) << " |" << std::endl;
         prev_altitude = f.altitude;         
         for (unsigned i = 1; i < f.navaids.size (); ++i) {
             flight_log << "|          |     |     |         |       ";
             flight_log << "|" << std::setw (14) << f.navaids.at (i) << " ";
             flight_log << "|          |" << std::endl;
         }
-        if (p.total_time - prev_fuel_check > (30 * 60) && i != p.fixes.size () - 1) {
-            flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
-            flight_log << "|                                TANK                               |" << std::endl;
-            flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
-            prev_fuel_check = p.total_time;
-        } else {
-            flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
-        }
+        // if (p.total_time - prev_fuel_check > (30 * 60) && i != p.fixes.size () - 1) {
+        //     flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
+        //     flight_log << "|                                TANK                               |" << std::endl;
+        //     flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
+        //     prev_fuel_check = p.total_time;
+        // } else {
+        //     flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
+        // }
 
+        std::cout << "winds " << f.wind_station << std::endl;
         if (f.wind_station != "none") winds_list.insert (f.wind_station);
         for (unsigned i = 0; i < f.navaids.size (); ++i) {
             std::string station = f.navaids.at (i).substr (0, 3);
