@@ -1,10 +1,11 @@
-// fplan.cpp
+// flightmaster.cpp
 // 
 
 #include <stdexcept>
 #include <iostream>
 
-#include "fplan.h"
+#include "utilities.h"
+#include "flightmaster.h"
 
 using namespace std;
 
@@ -13,12 +14,12 @@ using namespace std;
 // TODO: custom winds (183,23), FIX.txt, custom waypoints.csv, weight & balance
 
 int main (int argc, char* argv[]) {
-	cout << BOLDYELLOW << "[fplan, ver. " << VERSION << "]" << endl << endl;
+	cout << BOLDYELLOW << "[flightmaster, ver. " << VERSION << "]" << endl << endl;
 	cout << RESET << "(c) 2020, www.carminecella.com" << endl << endl;
 
 	try {
 		if (argc < 2) {
-			throw runtime_error (RESET "syntax is 'fplan command [args]\n\n" \
+			throw runtime_error (RESET "syntax is 'flightmaster command [args]\n\n" \
 								"where 'command' can be:\n\n" \
 								"update................................ update/download aeronautical databases\n"\
 								"[metars|tafs|winds|info] station(s)... fetch specified information for station(s)\n"\
@@ -26,14 +27,14 @@ int main (int argc, char* argv[]) {
 								"xwind hdg wind_dir wind_speed......... compute the wind components on a heading\n\n"\
 								"wcorr hdg speed wind_dir wind_speed... compute the wind correction on a heading\n\n"\
 								"examples:\n\n"\
-								"fplan update\n"\
-								"fplan metars KOAK LIPY LIPE\n"\
-								"fplan tafs KLVK\n"\
-								"fplan winds SFO LAS\n"\
-								"fplan info LIDF\n"\
-								"fplan flog my_flight.txt flightlog.txt\n"\
-								"xwind 06 100 8\n"\
-								"wcorr 270 100 100 10\n");
+								"flightmaster update\n"\
+								"flightmaster metars KOAK LIPY LIPE\n"\
+								"flightmaster tafs KLVK\n"\
+								"flightmaster winds SFO LAS\n"\
+								"flightmaster info LIDF\n"\
+								"flightmaster flog my_flight.txt flightlog.txt\n"\
+								"flightmaster xwind 06 100 8\n"\
+								"flightmaster rwcorr 270 100 100 10\n");
 		}
 		std::string command = argv[1];
 

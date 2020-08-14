@@ -1,10 +1,11 @@
-// fplan.h
+// fligthmaster.h
 // 
 
-#ifndef FPLAN_H
-#define FPLAN_H 
+#ifndef FLIGHTMASTER_H
+#define FLIGHTMASTER_H 
 
-#include <curl/curl.h>
+#include "utilities.h"
+
 #include <sys/stat.h>
 
 #include <stdexcept>
@@ -23,182 +24,6 @@
 
 #include <cmath>
 #include <cstdio>
-
-#define BOLDWHITE   "\033[1m\033[37m"
-#define BOLDCYAN    "\033[1m\033[36m"
-#define BOLDYELLOW  "\033[1m\033[33m"
-#define BOLDBLUE    "\033[1m\033[34m"
-#define RED     	"\033[31m" 
-#define RESET   	"\033[0m"
-
-struct MemoryStruct {
-    char *memory;
-    size_t size;
-};
-
-size_t write_mem_callback (void *contents, size_t size, size_t nmemb, void *userp) {
-    size_t realsize = size * nmemb;
-    struct MemoryStruct *mem = (struct MemoryStruct *)userp;
-
-    char *ptr = (char*) realloc(mem->memory, mem->size + realsize + 1);
-    if(ptr == NULL) {
-        /* out of memory! */
-        throw std::runtime_error ("not enough memory (realloc returned NULL)");
-    }
-
-    mem->memory = ptr;
-    memcpy(&(mem->memory[mem->size]), contents, realsize);
-    mem->size += realsize;
-    mem->memory[mem->size] = 0;
-
-    return realsize;
-}
-
-size_t write_data_callback (void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    size_t written = fwrite (ptr, size, nmemb, stream);
-    return written;
-}
-
-std::string fetch_url_data (const std::string&  url) {
-    CURL *curl_handle;
-    CURLcode res;
-
-    struct MemoryStruct chunk;
-
-    chunk.memory = (char*) malloc(1);
-    chunk.size = 0; 
-
-    curl_global_init (CURL_GLOBAL_ALL);
-
-    curl_handle = curl_easy_init ();
-
-    curl_easy_setopt (curl_handle, CURLOPT_URL, url.c_str ());
-    curl_easy_setopt (curl_handle, CURLOPT_WRITEFUNCTION, write_mem_callback);
-    curl_easy_setopt (curl_handle, CURLOPT_WRITEDATA, (void *)&chunk);
-    curl_easy_setopt (curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
-    res = curl_easy_perform(curl_handle);
-
-    std::stringstream data;
-    if (res == CURLE_OK) {
-        data << chunk.memory;
-    }
-
-    curl_easy_cleanup(curl_handle);
-    free (chunk.memory);
-    curl_global_cleanup();
-    return data.str ();
-}
-
-bool download_file (const std::string& url, const std::string& outfilename) {
-    CURL *curl_handle = curl_easy_init();
-    if (curl_handle) {
-        FILE *fp = fopen (outfilename.c_str (),"wb");
-        if (fp == 0) return false;
-
-        curl_easy_setopt (curl_handle, CURLOPT_URL, url.c_str ());
-        curl_easy_setopt (curl_handle, CURLOPT_WRITEFUNCTION, write_data_callback);
-        curl_easy_setopt (curl_handle, CURLOPT_WRITEDATA, fp);
-        CURLcode res = curl_easy_perform (curl_handle);
-
-        curl_easy_cleanup(curl_handle);
-        fclose(fp);
-        if (res != CURLE_OK) return false;
-        else return true;
-    }
-    return false;
-}
-std::string trim (const std::string& str, const std::string& newline = "\r\n") {
-    const auto strBegin = str.find_first_not_of (newline);
-    if (strBegin == std::string::npos)  return ""; // no content
-    const auto strEnd = str.find_last_not_of (newline);
-    const auto strRange = strEnd - strBegin + 1;
-    return str.substr (strBegin, strRange);
-}
-
-std::string html2text (std::string htmlTxt) {
-    std::regex stripFormatting ("<[^>]*(>|$)"); //match any character between '<' and '>', even when end tag is missing
-
-    std::string s1 = std::regex_replace (htmlTxt, stripFormatting, "");
-    std::string s2 = trim (s1);
-    std::string s3 = std::regex_replace (s2, std::regex("\\&nbsp;"), ",");
-    return s3;
-}
-
-std::string quote (const std::string input) {
-    return (std::string) "\"" + input + (std::string) "\"";
-}
- 
-std::string unquote (const std::string input) {
-    std::string s = input;
-    s.erase (
-        remove (s.begin (), s.end (), '\"'), s.end ());
-    return s;
-}
-
-typedef std::vector<std::pair<std::string, std::vector<std::string>>> CSV_data;
-// typedef std::map<std::string, std::vector<std::string>> CSV_data;
-
-CSV_data read_csv (std::istream& input){
-    // read a CSV file into a vector of <string, vector<string>> pairs where
-    // each pair represents <column name, column values>    
-    CSV_data result;
-    std::string line, colname;
-    std::string val;
-
-    // extract the first line in the file
-    std::getline (input, line);
-    std::stringstream ss (line);
-
-    // extract each column name
-    while (std::getline (ss, colname, ',')) {
-        result.push_back({colname, std::vector<std::string> {}});
-    }
-   
-   if (result.size () < 1) return result;
-
-   // read data, line by line
-    while (std::getline (input, line))  {
-        std::stringstream ss (line);
-        int colIdx = 0;
-        while (std::getline (ss, val, ',')){
-            result.at (colIdx).second.push_back(val);
-            // if (ss.peek () == ',') ss.ignore ();
-            colIdx++;
-            if (colIdx >= result.size ()) break;
-        }
-    }
-
-    return result;
-}
-
-std::vector<std::string>& get_csv_column (const std::string& colname, CSV_data& matrix) {
-    for (unsigned int i = 0; i < matrix.size (); ++i) {
-        if (matrix.at (i).first == quote (colname)) {
-            return matrix.at (i).second;
-        }
-    }
-    throw std::runtime_error ("invalid CSV column requested");
-}
-
-std::vector<int> get_csv_rows_by_key (const std::string& colname, const std::string& key, CSV_data& matrix) {
-    std::vector<int> idx;
-    std::vector<std::string> col = get_csv_column (colname, matrix);
-    for (unsigned i = 0; i < col.size (); ++i) {
-        if (col.at (i) == key) {
-            idx.push_back (i);
-        }
-    }
-    return idx;
-}
-
-std::string get_file_date (const std::string& filename) {
-    struct stat t_stat;
-    stat (filename.c_str (), &t_stat);
-    struct tm* timeinfo = localtime (&t_stat.st_ctime); // or gmtime() depending on what you want
-    // std::stringstream date;
-    // date << timeinfo->tm_mon << "/" << timeinfo->tm_mday << "/" << 1900 + timeinfo->tm_year;
-    return asctime (timeinfo); //date.str ();
-}
 
 // ---------------------------------------------
 class FlightLog;
@@ -288,11 +113,11 @@ struct Parameters {
 
 // ----------------------------------------------
 void update_dbs (std::ostream& out) {
-    mkdir (((std::string) getenv("HOME") + (std::string) "/.fplan/").c_str (), 0777);
-    std::string airports_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airports.csv";
-    std::string frequencies_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airport-frequencies.csv";
-    std::string runways_db = (std::string) getenv("HOME") + (std::string) "/.fplan/runways.csv";
-    std::string navaids_db = (std::string) getenv("HOME") + (std::string) "/.fplan/navaids.csv";
+    mkdir (((std::string) getenv("HOME") + (std::string) "/.flightmaster/").c_str (), 0777);
+    std::string airports_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/airports.csv";
+    std::string frequencies_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/airport-frequencies.csv";
+    std::string runways_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/runways.csv";
+    std::string navaids_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/navaids.csv";
 
     out << "downloading airports......"; out.flush ();
 	if (!download_file ("https://ourairports.com/data/airports.csv", airports_db)) {
@@ -325,10 +150,10 @@ void update_dbs (std::ostream& out) {
 }
 void load_dbs (std::ostream& out, 
     CSV_data& airports, CSV_data& frequencies, CSV_data& runways, CSV_data& navaids) {
-    std::string airports_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airports.csv";
-    std::string frequencies_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airport-frequencies.csv";
-    std::string runways_db = (std::string) getenv("HOME") + (std::string) "/.fplan/runways.csv";
-    std::string navaids_db = (std::string) getenv("HOME") + (std::string) "/.fplan/navaids.csv";
+    std::string airports_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/airports.csv";
+    std::string frequencies_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/airport-frequencies.csv";
+    std::string runways_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/runways.csv";
+    std::string navaids_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/navaids.csv";
 
     out <<  RESET << "airports......"; out.flush ();
     std::ifstream airports_in (airports_db.c_str());
@@ -739,18 +564,6 @@ void read_config (const char* config_file, Parameters& p, std::ostream& out) {
     }
 }
 
-std::string string_time (int time_in_sec) {
-    int minutes = (int) time_in_sec / 60.;
-    int seconds = time_in_sec  % 60;
-    int hours = (int) minutes / 60;
-    minutes = minutes % 60;
-    std::stringstream ttime;
-    if (hours) ttime << std::setw (2) << std::setfill ('0') << hours << ":";
-    ttime << std::setw (2) << std::setfill ('0') << minutes << ":"  
-        << std::setw (2) << std::setfill ('0') << seconds;
-    return ttime.str ();
-}     
-
 std::string compile_flight (Parameters& p, std::ostream& out) {
     std::stringstream flight_log;
     p.WCAmax = (int) (180. * asin (10. / (double) p.cruise_IAS) / M_PI);
@@ -759,9 +572,9 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
     flight_log << "compiled on " << std::ctime (&curr_time) << std::endl;
 
     flight_log << "**DEPARTURE: " << p.departure << "**" << std::endl << std::endl;
-    flight_log << "Date _________ Tach _________ Block _________" << std::endl << std::endl;
-    flight_log << "Info _________ W/V  _________ QNH   _________" << std::endl << std::endl;
-    flight_log << "Taxi _________ RWY  _________ T/O   _________" << std::endl << std::endl << std::endl;
+    flight_log << "Date ___________    Tach ___________    Block on  ___________" << std::endl << std::endl;
+    flight_log << "Info ___________    W/V  ___________    Altimeter ___________" << std::endl << std::endl;
+    flight_log << "Taxi ___________    RWY  ___________    Take off  ___________" << std::endl << std::endl << std::endl;
 
     flight_log << "**FLIGHT LOG**" << std::endl << std::endl;
     flight_log << "|      FIX |  MC |  MH |     ALT |    NM |       NAVAIDS |      ETE |" << std::endl;
@@ -846,7 +659,7 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
             flight_log << "|" << std::setw (14) << f.navaids.at (i) << " ";
             flight_log << "|          |" << std::endl;
         }
-        if (p.total_time - prev_fuel_check > (30 * 60)) {
+        if (p.total_time - prev_fuel_check > (30 * 60) && i != p.fixes.size () - 1) {
             flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
             flight_log << "|                                TANK                               |" << std::endl;
             flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
@@ -855,7 +668,7 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
             flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
         }
 
-        winds_list.insert (f.wind_station);
+        if (f.wind_station != "none") winds_list.insert (f.wind_station);
         for (unsigned i = 0; i < f.navaids.size (); ++i) {
             std::string station = f.navaids.at (i).substr (0, 3);
             navaids_list.insert (station);
@@ -881,32 +694,21 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
     }
 
     std::vector<std::string> alt_aids = get_navaids (p.alternate);
-    flight_log << "ALTERNATE " << p.alternate << ", MC " << alt_bearing 
-        << ", ETA " << string_time (alt_ETA);
+    flight_log << "ALTERNATE " << p.alternate << ", MC " << std::setw (3) << std::setfill ('0') 
+        << alt_bearing  << ", NM " << alt_dist <<", ETA " << std::setfill (' ') << string_time (alt_ETA);
     airports_list.insert (p.alternate);
     if (alt_aids.size ()) {
         flight_log << ", " << alt_aids.at (0);
-        flight_log << std::endl << std::endl << std::endl;
         std::string alt_navaid_station = alt_aids.at (0).substr (0, 3);
         navaids_list.insert (alt_navaid_station);
     }
+    flight_log << std::endl << std::endl << std::endl;
 
     flight_log << "**ARRIVAL: " << p.fixes.at (p.fixes.size () - 1).name  << "**" << std::endl << std::endl;
 
-    flight_log << "Info _________ W/V   _________ QNH  _________" << std::endl << std::endl;
-    flight_log << "RWY  _________ Taxi  _________ Land _________" << std::endl << std::endl;
-    flight_log << "Tach _________ Block _________" << std::endl << std::endl << std::endl;
-
-    flight_log << "**FUEL**" << std::endl << std::endl;
-
-    flight_log << std::left << std::setw (10) << "Legs" << std::right << std::setw (10) << p.total_fuel << " lt/gal" << std::endl;
-    flight_log <<  std::left << std::setw (10) << "Taxi" << std::right << std::setw (10) << p.taxi_fuel << " lt/gal" << std::endl;
-    double alt_fuel = (double) alt_ETA  * p.fuel_per_hour / 3600.;
-    flight_log <<  std::left << std::setw (10) << "Alternate" << std::right << std::setw (10) << alt_fuel << " lt/gal" << std::endl;
-    double reserve_fuel = (double) p.reserve_time * p.fuel_per_hour / 3600.;
-    flight_log <<  std::left << std::setw (10) << "Reserve" << std::right << std::setw (10) << reserve_fuel << " lt/gal" << std::endl;
-    flight_log <<  std::left << std::setw (10) << "Total" << std::right <<  std::setw (10) 
-        << p.total_fuel + p.taxi_fuel + alt_fuel + reserve_fuel << " lt/gal" << std::endl << std::endl;;
+    flight_log << "Info ___________    W/V       ___________    Altimeter ___________" << std::endl << std::endl;
+    flight_log << "RWY  ___________    Taxi      ___________    Landing   ___________" << std::endl << std::endl;
+    flight_log << "Tach ___________    Block off ___________ " << std::endl << std::endl << std::endl;
 
     std::stringstream metars_coll;
     std::stringstream tafs_coll;
@@ -970,18 +772,30 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
         flight_log << std::endl;
     }
 
-    flight_log << "**INFORMATION" << std::endl << std::endl;
+    flight_log << "**FUEL**" << std::endl << std::endl;
 
-    flight_log << "* cruse speed: " << p.cruise_IAS << " kts" << std::endl;
-    flight_log << "* average fuel per hour: " << p.fuel_per_hour << " lt/gal" << std::endl;
+    flight_log << "(average fuel per hour: " << p.fuel_per_hour << " lt/gal)" << std::endl << std::endl;
+
+    flight_log << std::left << std::setw (10) << "Legs" << std::right << std::setw (10) << p.total_fuel << " lt/gal" << std::endl;
+    flight_log <<  std::left << std::setw (10) << "Taxi" << std::right << std::setw (10) << p.taxi_fuel << " lt/gal" << std::endl;
+    double alt_fuel = (double) alt_ETA  * p.fuel_per_hour / 3600.;
+    flight_log <<  std::left << std::setw (10) << "Alternate" << std::right << std::setw (10) << alt_fuel << " lt/gal" << std::endl;
+    double reserve_fuel = (double) p.reserve_time * p.fuel_per_hour / 3600.;
+    flight_log <<  std::left << std::setw (10) << "Reserve" << std::right << std::setw (10) << reserve_fuel << " lt/gal" << std::endl;
+    flight_log <<  std::left << std::setw (10) << "Total" << std::right <<  std::setw (10) 
+        << p.total_fuel + p.taxi_fuel + alt_fuel + reserve_fuel << " lt/gal" << std::endl << std::endl;;
+
+    flight_log << "**INFORMATION**" << std::endl << std::endl;
+
+    flight_log << "* cruise speed: " << p.cruise_IAS << " kts" << std::endl;
     flight_log << "* WCAmax (90 at 10 kts): " << p.WCAmax << " deg" << std::endl;
     flight_log << "* magnetic variation: " << fabs (p.magnetic_variation) 
         << (p.magnetic_variation > 0 ? " W" : " E") << std::endl;
 
-    std::string airports_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airports.csv";
-    std::string frequencies_db = (std::string) getenv("HOME") + (std::string) "/.fplan/airport-frequencies.csv";
-    std::string runways_db = (std::string) getenv("HOME") + (std::string) "/.fplan/runways.csv";
-    std::string navaids_db = (std::string) getenv("HOME") + (std::string) "/.fplan/navaids.csv";
+    std::string airports_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/airports.csv";
+    std::string frequencies_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/airport-frequencies.csv";
+    std::string runways_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/runways.csv";
+    std::string navaids_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/navaids.csv";
 
     flight_log << "* airports DB latest: " << get_file_date (airports_db);
     flight_log << "* frequencies DB latest: " << get_file_date (frequencies_db);
@@ -994,6 +808,6 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
 
     return flight_log.str ();
 }
-#endif	// FPLAN_H  
+#endif	// FLIGHTMASTER_H  
 
 // EOF
