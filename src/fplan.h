@@ -256,8 +256,11 @@ struct Airport {
 struct Parameters {
     Parameters () {
         departure = "";
+        alternate = "";
         cruise_IAS = 0;
         fuel_per_hour = 0;
+        taxi_fuel = 0;
+        reserve_time = 0;
         magnetic_variation = 0;
         total_miles = 0;
         total_time = 0;
@@ -266,8 +269,11 @@ struct Parameters {
 
     // input
     std::string departure;
+    std::string alternate;
     double cruise_IAS;
     double fuel_per_hour;
+    double taxi_fuel;
+    double reserve_time;
     int magnetic_variation;
     std::vector<Fix> fixes;
     std::vector<std::string> custom;
@@ -573,6 +579,12 @@ void set_parameter (std::deque<std::string>& tokens, Parameters& p, std::ostream
         if (a.info.size () == 0) {
             throw std::runtime_error ("departure is not an airport");
         }
+    } else if (tokens[0] == "alternate") {
+        p.alternate = tokens[1];
+        Airport a = get_airport_info (p.alternate, p.airports_db, p.frequencies_db, p.runways_db);
+        if (a.info.size () == 0) {
+            throw std::runtime_error ("alternate is not an airport");
+        }
     }  else if (tokens[0] == "cruise_speed") {
     	p.cruise_IAS  = atof (tokens[1].c_str ());
         if (p.cruise_IAS <= 60) {
@@ -582,6 +594,16 @@ void set_parameter (std::deque<std::string>& tokens, Parameters& p, std::ostream
     	p.fuel_per_hour = atof (tokens[1].c_str ());
         if (p.fuel_per_hour <= 0) {
              throw std::runtime_error ("invalid fuel per hour");
+        }        
+    } else if (tokens[0] == "taxi_fuel") {
+    	p.taxi_fuel = atof (tokens[1].c_str ());
+        if (p.fuel_per_hour <= 0) {
+             throw std::runtime_error ("invalid taxi fuel");
+        }        
+    } else if (tokens[0] == "reserve_time") {
+    	p.reserve_time = atof (tokens[1].c_str ()) * 60;
+        if (p.reserve_time <= 0) {
+             throw std::runtime_error ("invalid reserve time");
         }        
     } else if (tokens[0] == "magnetic_variation") {
         if (tokens.size () != 3) {
@@ -711,7 +733,8 @@ void read_config (const char* config_file, Parameters& p, std::ostream& out) {
         set_parameter (tokens, p, out);
     }
 
-    if (p.departure == "" || p.cruise_IAS == 0 || p.fuel_per_hour == 0 || p.fixes.size () == 0) {
+    if (p.departure == "" || p.alternate == "" || p.cruise_IAS == 0 || p.fuel_per_hour == 0 || p.fixes.size () == 0
+        || p.taxi_fuel == 0 || p.reserve_time == 0) {
         throw std::runtime_error ("missing parameters in configuration file");
     }
 }
@@ -794,7 +817,7 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
 
         double true_speed = ground_speed ? ground_speed : p.cruise_IAS;
         f.ETE = (int) (f.distance / true_speed * 3600.); // in sec.
-        f.fuel = f.ETE * p.fuel_per_hour / 3660.;
+        f.fuel = f.ETE * p.fuel_per_hour / 3600.;
 
         p.total_time += f.ETE;
         p.total_miles += f.distance;
@@ -846,13 +869,44 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
     flight_log << "|   TOTALS |     |     |         |";
     flight_log << std::setw (6) << std::fixed <<  std::setprecision (1) << p.total_miles << " ";
     flight_log << "|               | " << std::setw (8) << string_time (p.total_time) << " |" 
-        << std::endl << std::endl << std::endl;
+        << std::endl << std::endl;
+
+    Airport alt = get_airport_info (p.alternate, p.airports_db, p.frequencies_db, p.runways_db);
+    int alt_bearing =  (bearing_from_gps (prev_lat, prev_long, alt.lat, alt.longit) + 360) % 360;
+    double alt_dist = haversine_mi (prev_lat, prev_long, alt.lat, alt.longit);
+    int alt_ETA = (int) (alt_dist / p.cruise_IAS  * 3600.); // in sec.
+
+    if (p.alternate == p.fixes.at (p.fixes.size () - 1).name) {
+        throw std::runtime_error ("alternate cannot be the same as arrival");
+    }
+
+    std::vector<std::string> alt_aids = get_navaids (p.alternate);
+    flight_log << "ALTERNATE " << p.alternate << ", MC " << alt_bearing 
+        << ", ETA " << string_time (alt_ETA);
+    airports_list.insert (p.alternate);
+    if (alt_aids.size ()) {
+        flight_log << ", " << alt_aids.at (0);
+        flight_log << std::endl << std::endl << std::endl;
+        std::string alt_navaid_station = alt_aids.at (0).substr (0, 3);
+        navaids_list.insert (alt_navaid_station);
+    }
 
     flight_log << "**ARRIVAL: " << p.fixes.at (p.fixes.size () - 1).name  << "**" << std::endl << std::endl;
 
     flight_log << "Info _________ W/V   _________ QNH  _________" << std::endl << std::endl;
     flight_log << "RWY  _________ Taxi  _________ Land _________" << std::endl << std::endl;
     flight_log << "Tach _________ Block _________" << std::endl << std::endl << std::endl;
+
+    flight_log << "**FUEL**" << std::endl << std::endl;
+
+    flight_log << std::left << std::setw (10) << "Legs" << std::right << std::setw (10) << p.total_fuel << " lt/gal" << std::endl;
+    flight_log <<  std::left << std::setw (10) << "Taxi" << std::right << std::setw (10) << p.taxi_fuel << " lt/gal" << std::endl;
+    double alt_fuel = (double) alt_ETA  * p.fuel_per_hour / 3600.;
+    flight_log <<  std::left << std::setw (10) << "Alternate" << std::right << std::setw (10) << alt_fuel << " lt/gal" << std::endl;
+    double reserve_fuel = (double) p.reserve_time * p.fuel_per_hour / 3600.;
+    flight_log <<  std::left << std::setw (10) << "Reserve" << std::right << std::setw (10) << reserve_fuel << " lt/gal" << std::endl;
+    flight_log <<  std::left << std::setw (10) << "Total" << std::right <<  std::setw (10) 
+        << p.total_fuel + p.taxi_fuel + alt_fuel + reserve_fuel << " lt/gal" << std::endl << std::endl;;
 
     std::stringstream metars_coll;
     std::stringstream tafs_coll;
@@ -897,7 +951,6 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
         flight_log << std::endl;
     }
 
-
     if (metars_coll.str ().size ()) {
         flight_log << "**METARS**" << std::endl << std::endl;
         flight_log << metars_coll.str () << std::endl;
@@ -921,7 +974,6 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
 
     flight_log << "* cruse speed: " << p.cruise_IAS << " kts" << std::endl;
     flight_log << "* average fuel per hour: " << p.fuel_per_hour << " lt/gal" << std::endl;
-    flight_log << "* minimum fuel: " << p.total_fuel << " lt/gal (NB: legs only)" << std::endl;
     flight_log << "* WCAmax (90 at 10 kts): " << p.WCAmax << " deg" << std::endl;
     flight_log << "* magnetic variation: " << fabs (p.magnetic_variation) 
         << (p.magnetic_variation > 0 ? " W" : " E") << std::endl;

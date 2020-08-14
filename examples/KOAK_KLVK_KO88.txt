@@ -1,8 +1,13 @@
 ; departure must be an airport
 departure KOAK
+alternate KHWD
 
 cruise_speed 90
+
 fuel_per_hour 8.2
+taxi_fuel 1
+reserve_time 45
+
 magnetic_variation 13 E
 
 ;  name  TC   ALT   NM   winds navaids
