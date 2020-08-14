@@ -312,7 +312,10 @@ void update_dbs (std::ostream& out) {
     } else {
         out << "latest " << get_file_date (navaids_db);
     }
-    out << std::endl;
+    out << std::endl << std::endl;
+
+    out << BOLDCYAN << "warning: the US waypoints database (FIX.txt) needs to be manually updated\n"
+        << "from https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/" << RESET << std::endl << std::endl;
 }
 void load_dbs (std::ostream& out, 
     CSV_data& airports, CSV_data& frequencies, CSV_data& runways, CSV_data& navaids) {
@@ -429,9 +432,12 @@ bool get_wind_info (const std::string& winds_aloft, double altitude, int& direct
     return true;
 }
 
+#define d2r (M_PI / 180.0)
+#define r2d (180.0 / M_PI)
+
 int compute_wind_correction (int wind_direction, int wind_speed, int IAS, int intended_course, double& ground_speed) {
-    double indended_course_rad = M_PI * (double) intended_course / 180.; // keep all in radians internally
-    double wind_direction_rad = M_PI * (double) wind_direction  / 180. + M_PI;
+    double indended_course_rad = (double) intended_course * d2r; // keep all in radians internally
+    double wind_direction_rad = (double) wind_direction * d2r  + M_PI; // from -> to
     
     if (wind_direction_rad > M_PI) wind_direction_rad = wind_direction_rad - 2. * M_PI;
   
@@ -446,11 +452,33 @@ int compute_wind_correction (int wind_direction, int wind_speed, int IAS, int in
         while (heading_rad > 2. * M_PI) heading_rad = heading_rad - 2. * M_PI;
         while (heading_rad < 0.) heading_rad = heading_rad + 2. * M_PI;
         ground_speed = IAS * cos (WCA) + wind_speed * cos (WT_angle);
-        return (int) (180. * heading_rad / M_PI); // convert in degrees
+        return (int) (heading_rad * r2d); // convert in degrees
     }
     throw std::runtime_error ("invalid wind parameters");
 }
 
+void compute_xwind (int heading, int wind_dir, double wind_speed, double& xwind_speed, double& tailwind_speed) {
+    double  WAA = (double) (wind_dir - heading);
+    xwind_speed = wind_speed * sin ((double) WAA * d2r);
+    tailwind_speed = wind_speed * cos ((double) WAA * d2r);
+}
+
+double haversine_mi (double lat1, double long1, double lat2, double long2) {
+    double dlong = (long2 - long1) * d2r;
+    double dlat = (lat2 - lat1) * d2r;
+    double a = pow (sin(dlat/2.0), 2) + cos(lat1*d2r) * cos(lat2*d2r) * pow(sin(dlong/2.0), 2);
+    double c = 2 * atan2 (sqrt(a), sqrt(1-a));
+    double d = 3956 * c;
+    return d;
+}
+
+int  bearing_from_gps (double lat1, double long1, double lat2, double long2) {
+    double dlong = (long2 - long1) * d2r;
+    double X = cos (lat2 * d2r) * sin (dlong);
+    double Y = cos (lat1 * d2r) * sin (lat2  * d2r) - sin (lat1 * d2r) * cos(lat2 * d2r) * cos (dlong);
+    double b = atan2 (X, Y);
+    return ((int) (b * r2d) + 360) % 360;
+}
 std::vector<std::string> get_navaids (const std::string& station) {
     std::stringstream query;
     query << "https://www.airnav.com/airport/" << station;
@@ -580,18 +608,26 @@ void set_parameter (std::deque<std::string>& tokens, Parameters& p, std::ostream
         }
         Fix f;
         f.name = tokens[1];
-        f.true_course = atol (tokens[2].c_str ());
-        if (f.true_course < 0 || f.true_course > 359) {
-            throw std::runtime_error ("invalid true course");
+        if (tokens[2] == "auto") {
+            f.true_course = 999;
+        } else {
+            f.true_course = atol (tokens[2].c_str ());
+            if (f.true_course < 0 || f.true_course > 359) {
+                throw std::runtime_error ("invalid true course");
+            }
         }
         f.altitude = atol (tokens[3].c_str ());
         if (f.altitude < 0 | f.altitude > 30000) {
             throw std::runtime_error ("invalid altitude");
         }        
-        f.distance = atof (tokens[4].c_str ());
-        if (f.distance <= 0 || f.distance > 999) {
-            throw std::runtime_error ("invalid distance");
-        }        
+        if (tokens[4] == "auto") {
+            f.distance = -1;
+        } else {
+            f.distance = atof (tokens[4].c_str ());
+            if (f.distance <= 0 || f.distance > 999) {
+                throw std::runtime_error ("invalid distance");
+            }        
+        }
         f.wind_station = tokens[5];
         if (f.wind_station != "none") {
             f.winds_aloft = get_winds_aloft (f.wind_station);
@@ -607,7 +643,7 @@ void set_parameter (std::deque<std::string>& tokens, Parameters& p, std::ostream
                 break;
             } else if (navaid.size () <= 4) {
                 f.navaids = get_navaids (navaid);
-                if (f.navaids.size () > 2) f.navaids.resize (2); // cut tp ti
+                if (f.navaids.size () > 2) f.navaids.resize (2); // cut to two
                 if (f.navaids.size () == 0) {
                     out << BOLDCYAN << "warning: cannot fetch navaids for " << f.name << RESET << std::endl;
                 }
@@ -686,32 +722,11 @@ std::string string_time (int time_in_sec) {
     int hours = (int) minutes / 60;
     minutes = minutes % 60;
     std::stringstream ttime;
-    ttime << hours << ":" << minutes << ":" << seconds;
+    if (hours) ttime << std::setw (2) << std::setfill ('0') << hours << ":";
+    ttime << std::setw (2) << std::setfill ('0') << minutes << ":"  
+        << std::setw (2) << std::setfill ('0') << seconds;
     return ttime.str ();
 }     
-
-#define d2r (M_PI / 180.0)
-#define r2d (180.0 / M_PI)
-double haversine_mi (double lat1, double long1, double lat2, double long2) {
-    double dlong = (long2 - long1) * d2r;
-    double dlat = (lat2 - lat1) * d2r;
-    double a = pow (sin(dlat/2.0), 2) + cos(lat1*d2r) * cos(lat2*d2r) * pow(sin(dlong/2.0), 2);
-    double c = 2 * atan2 (sqrt(a), sqrt(1-a));
-    double d = 3956 * c;
-    return d;
-}
-
-double bearing_from_gps (double lat1, double long1, double lat2, double long2) {
-    lat1 *= d2r;
-    lat2 *= d2r;
-    long1 *= d2r;
-    long2 *= d2r;
-
-    double X = cos (lat2) * sin (long1 - long2);
-    double Y = cos (lat1) * sin (lat2) - sin (lat1) * cos(lat2) * cos (long1 - long2);
-    double b = atan2 (X, Y);
-    return b * r2d;
-}
 
 std::string compile_flight (Parameters& p, std::ostream& out) {
     std::stringstream flight_log;
@@ -726,12 +741,12 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
     flight_log << "Taxi _________ RWY  _________ T/O   _________" << std::endl << std::endl << std::endl;
 
     flight_log << "**FLIGHT LOG**" << std::endl << std::endl;
-    flight_log << "|      FIX |  MC |  MH |     ALT |  NM |       NAVAIDS |      ETE |" << std::endl;
-    flight_log << "|----------|-----|-----|---------|-----|---------------|----------|" << std::endl;
+    flight_log << "|      FIX |  MC |  MH |     ALT |    NM |       NAVAIDS |      ETE |" << std::endl;
+    flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
 
     Airport apt = get_airport_info (p.departure, p.airports_db, p.frequencies_db, p.runways_db);
-    double prev_long = apt.longit;
     double prev_lat = apt.lat;
+    double prev_long = apt.longit;
 
     int prev_altitude = 0;
     int prev_fuel_check = 0;
@@ -742,14 +757,39 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
         Fix& f = p.fixes.at (i);
         out << "processing...." << BOLDWHITE << f.name << RESET << std::endl; out.flush ();
 
-        f.magnetic_course = f.true_course + p.magnetic_variation;
-        if (f.magnetic_course < 0) f.magnetic_course = 360 + f.magnetic_course; 
+        Airport apt = get_airport_info (f.name, p.airports_db, p.frequencies_db, p.runways_db);
+        if (apt.info.size ()) airports_list.insert (f.name);
+        if (apt.info.size () == 0  && (i == p.fixes.size () - 1  || f.true_course == 999 || f.distance == -1)) {
+            throw std::runtime_error ("fix must be an airport if it is the last or if course/distance are set to auto");
+        }
+
+        if (f.true_course == 999) {
+            f.true_course = bearing_from_gps (prev_lat, prev_long, apt.lat, apt.longit);
+        }
+        if (f.distance == -1) {
+            f.distance = haversine_mi  (prev_lat, prev_long, apt.lat, apt.longit);
+        }
+
+        if (apt.info.size ()) {
+            double delta_dist = fabs (haversine_mi (prev_lat, prev_long, apt.lat, apt.longit) - f.distance);
+            if (delta_dist > 10) {
+                std::cout << BOLDCYAN << "warning: specified distance differs from calulated (" 
+                    << haversine_mi (prev_lat, prev_long, apt.lat, apt.longit) << " vs " << f.distance << ")" << RESET << std::endl;            
+            }
+            int tc = bearing_from_gps (prev_lat, prev_long, apt.lat, apt.longit);
+            double delta_bearing = fabs (tc - f.true_course);
+            if (delta_bearing > 10) {
+                std::cout << BOLDCYAN << "warning: true course differs from calulated (" 
+                   <<  tc << " vs " << f.magnetic_course << ")" << RESET << std::endl;            
+            }
+        }
+
+        f.magnetic_course = (f.true_course + p.magnetic_variation + 360) % 360;
         double ground_speed = 0;
         int wdir = 0, wspeed = 0;
         if (get_wind_info (f.winds_aloft, f.altitude, wdir, wspeed)) {
             f.true_heading = compute_wind_correction (wdir, wspeed, p.cruise_IAS, f.true_course, ground_speed);
-            f.magnetic_heading = f.true_heading + p.magnetic_variation;
-            if (f.magnetic_heading < 0) f.magnetic_heading = 360 + f.magnetic_heading;
+            f.magnetic_heading = (f.true_heading + p.magnetic_variation + 360) % 360;
         } else f.magnetic_heading = 999;
 
         double true_speed = ground_speed ? ground_speed : p.cruise_IAS;
@@ -771,7 +811,7 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
         if (prev_altitude < f.altitude) flight_log << "U ";
         else if (prev_altitude > f.altitude) flight_log << "D ";
         else flight_log << "_ ";
-        flight_log << "|" << std::setw (4) << f.distance << " ";
+        flight_log << "|" << std::setw (6) << std::fixed <<  std::setprecision (1) <<  f.distance << " ";
         if (f.navaids.size () == 0) flight_log  << "|               ";
         else flight_log << "|" << std::setw (14) << f.navaids.at (0) << " ";
         flight_log << "| " << std::setw (8) << string_time (f.ETE);
@@ -779,17 +819,17 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
         else flight_log << " |" << std::endl;
         prev_altitude = f.altitude;         
         for (unsigned i = 1; i < f.navaids.size (); ++i) {
-            flight_log << "|          |     |     |         |     ";
+            flight_log << "|          |     |     |         |       ";
             flight_log << "|" << std::setw (14) << f.navaids.at (i) << " ";
             flight_log << "|          |" << std::endl;
         }
         if (p.total_time - prev_fuel_check > (30 * 60)) {
-            flight_log << "|----------|-----|-----|---------|-----|---------------|----------|" << std::endl;
-            flight_log << "|                              TANK                               |" << std::endl;
-            flight_log << "|----------|-----|-----|---------|-----|---------------|----------|" << std::endl;
+            flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
+            flight_log << "|                                TANK                               |" << std::endl;
+            flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
             prev_fuel_check = p.total_time;
         } else {
-            flight_log << "|----------|-----|-----|---------|-----|---------------|----------|" << std::endl;
+            flight_log << "|----------|-----|-----|---------|-------|---------------|----------|" << std::endl;
         }
 
         winds_list.insert (f.wind_station);
@@ -797,20 +837,14 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
             std::string station = f.navaids.at (i).substr (0, 3);
             navaids_list.insert (station);
         }
-        Airport a = get_airport_info (f.name, p.airports_db, p.frequencies_db, p.runways_db);
-        if (a.info.size ()) airports_list.insert (f.name);
-        if (i == p.fixes.size () - 1  && a.info.size () == 0) {
-            throw std::runtime_error ("last fix must be an airport");
-        }
-        double delta_dist = fabs (haversine_mi (prev_lat, prev_long, a.lat, a.longit) - f.distance);
-        if (delta_dist > 10) {
-            std::cout << BOLDCYAN << "warning: specified distance differs from calulated" << RESET << std::endl;            
-        }
-        prev_long = a.longit;
+            
+        prev_lat = apt.lat;
+        prev_long = apt.longit;            
+
     }
 
     flight_log << "|   TOTALS |     |     |         |";
-    flight_log << std::setw (4) << p.total_miles << " ";
+    flight_log << std::setw (6) << std::fixed <<  std::setprecision (1) << p.total_miles << " ";
     flight_log << "|               | " << std::setw (8) << string_time (p.total_time) << " |" 
         << std::endl << std::endl << std::endl;
 
@@ -883,7 +917,7 @@ std::string compile_flight (Parameters& p, std::ostream& out) {
         flight_log << std::endl;
     }
 
-    flight_log << "**INFORMATION**" << std::endl << std::endl;
+    flight_log << "**INFORMATION" << std::endl << std::endl;
 
     flight_log << "* cruse speed: " << p.cruise_IAS << " kts" << std::endl;
     flight_log << "* average fuel per hour: " << p.fuel_per_hour << " lt/gal" << std::endl;

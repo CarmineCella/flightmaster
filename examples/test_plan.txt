@@ -1,0 +1,21 @@
+; departure must be an airport
+departure LIDF
+
+cruise_speed 90
+fuel_per_hour 8.2
+magnetic_variation 3 W
+
+;   name TC   ALT   NM    winds navaids
+fix LIPY 130  3500  18    none  LIPY
+fix LIPE 300 3500  120    none  LIPE
+fix LIPY 120  3500  120    none  LIPY
+fix LIDF 315  3500  22    none  LIDF
+
+
+;fix KLVK auto 3500  auto  SFO   auto
+;fix KCCR auto 4500  auto  SFO   auto
+;fix KHWD auto 4500  auto  SFO   auto
+;fix KSFO auto 4500  auto  SFO   auto
+;fix KAPC auto 4500  auto  SFO   auto
+;fix KOAK auto 4500  auto  SFO   auto
+

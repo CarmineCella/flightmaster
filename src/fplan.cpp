@@ -10,7 +10,7 @@ using namespace std;
 
 #define VERSION 0.5
 
-// TODO: custom winds (183,23), automatic bearing and distance from GPS. fractional miles
+// TODO: custom winds (183,23), FIX.txt, custom waypoints.csv, weight & balance
 
 int main (int argc, char* argv[]) {
 	cout << BOLDYELLOW << "[fplan, ver. " << VERSION << "]" << endl << endl;
@@ -18,18 +18,22 @@ int main (int argc, char* argv[]) {
 
 	try {
 		if (argc < 2) {
-			throw runtime_error ("syntax is 'fplan command [args]\n\n" \
+			throw runtime_error (RESET "syntax is 'fplan command [args]\n\n" \
 								"where 'command' can be:\n\n" \
 								"update................................ update/download aeronautical databases\n"\
 								"[metars|tafs|winds|info] station(s)... fetch specified information for station(s)\n"\
-								"flog config.txt output.txt............ generate a flight log\n\n" \
+								"flog config.txt output.txt............ generate a flight log\n" \
+								"xwind hdg wind_dir wind_speed......... compute the wind components on a heading\n\n"\
+								"wcorr hdg speed wind_dir wind_speed... compute the wind correction on a heading\n\n"\
 								"examples:\n\n"\
 								"fplan update\n"\
-								"fplan metars KOAK\n"\
+								"fplan metars KOAK LIPY LIPE\n"\
 								"fplan tafs KLVK\n"\
 								"fplan winds SFO LAS\n"\
-								"fplan info LIPY LIDF LIPE\n"\
-								"fplan flog my_flight.txt flightlog.txt\n\n");
+								"fplan info LIDF\n"\
+								"fplan flog my_flight.txt flightlog.txt\n"\
+								"xwind 06 100 8\n"\
+								"wcorr 270 100 100 10\n");
 		}
 		std::string command = argv[1];
 
@@ -91,7 +95,7 @@ int main (int argc, char* argv[]) {
 			read_config (argv[2], p, cout);
 			cout << endl;
 
-			std::string flog = compile_flight(p, cout);
+			std::string flog = compile_flight (p, cout);
 			cout << endl;
 
 			ofstream out (argv[3]);
@@ -99,8 +103,52 @@ int main (int argc, char* argv[]) {
 				throw runtime_error ("cannot create output file");
 			}
 			out << flog << std::endl;
+		} else if (command == "xwind") {
+			if (argc != 5) {
+				throw runtime_error ("required syntax is 'xwind heading wind_dir wind_speed");
+			}			
+			int hdg = atol (argv[2]);
+			if (hdg < 0 || hdg > 359) throw runtime_error ("invalid heading");
 
-		} else {
+			int wind_dir = atol (argv[3]);
+			if (wind_dir < 0 || wind_dir > 359) throw runtime_error ("invalid wind direction");
+
+			double wind_speed = atof (argv[4]);
+			if (wind_speed < 0) throw runtime_error ("invalid wind speed");
+
+			double xwind_speed = 0;
+			double tailwind_speed = 0;
+			compute_xwind (hdg, wind_dir, wind_speed, xwind_speed, tailwind_speed);
+
+			cout << "heading "<< hdg << ": ";
+			if (xwind_speed < 0) cout <<  "left ";
+			else cout << "right ";
+			cout << "xwind speed = " << fabs (xwind_speed) << ", ";
+			if (tailwind_speed > 0) cout << "headwind ";
+			else cout << "tailwind ";
+			cout << "speed = " << fabs (tailwind_speed) << endl;
+
+		} else if (command == "wcorr") {
+			if (argc != 6) {
+				throw runtime_error ("required syntax is 'wcorr heading speed wind_dir wind_speed");
+			}			
+			int hdg = atol (argv[2]);
+			if (hdg < 0 || hdg > 359) throw runtime_error ("invalid heading");
+
+			double speed = atof (argv[3]);
+			if (speed < 0) throw runtime_error ("invalid speed");
+
+			int wind_dir = atol (argv[4]);
+			if (wind_dir < 0 || wind_dir > 359) throw runtime_error ("invalid wind direction");
+
+			double wind_speed = atof (argv[5]);
+			if (wind_speed < 0) throw runtime_error ("invalid wind speed");
+
+			double ground_speed = 0;
+			int new_head = compute_wind_correction (wind_dir, wind_speed, speed, hdg, ground_speed);
+
+			cout << "heading "<< hdg << " -> " << new_head << " (gs = " << ground_speed << ")" << endl;
+		}else {
 			throw runtime_error ("invalid command specified");
 		}
 	}

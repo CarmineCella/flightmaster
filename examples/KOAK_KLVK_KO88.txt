@@ -1,0 +1,23 @@
+; departure must be an airport
+departure KOAK
+
+cruise_speed 90
+fuel_per_hour 8.2
+magnetic_variation 13 E
+
+;  name  TC   ALT   NM   winds navaids
+fix KLVK auto 3500  auto SFO   KLVK
+fix KO88 auto 4500  auto SFO   O88
+fix KOAK auto 4500  auto SFO   KOAK
+
+;fix KLVK 096 3500  20  SFO   KLVK
+;fix KO88 010 4500  30  SFO   O88
+;fix KOAK 221 4500  37  SFO   KOAK
+
+; TC and NM can be either a value or auto
+; winds can be either a station name (eg. SFO, LAS, ...) or 'none'
+; navaids can be either a station name, 'none' or a sequence of strings like this SAC,88,16.6 (no spaces)
+; NB: after 'none' and station name the scanning stops
+
+; a fix must be an airport if it is the last or if TC/NM are set to auto
+
