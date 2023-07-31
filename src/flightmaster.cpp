@@ -9,7 +9,7 @@
 
 using namespace std;
 
-// TODO: custom winds (183,23), FIX.txt, custom waypoints.csv, weight & balance
+// TODO: custom winds (183,23), custom waypoints.csv
 
 int main (int argc, char* argv[]) {
 	cout << BOLDYELLOW << "[flightmaster, ver. " << VERSION << "]" << endl << endl;

@@ -175,6 +175,7 @@ CSV_data read_csv (std::istream& input){
 
 std::vector<std::string>& get_csv_column (const std::string& colname, CSV_data& matrix) {
     for (unsigned int i = 0; i < matrix.size (); ++i) {
+        std::cout << "--- " << colname << ", " << matrix.at (i).first << " " << quote(colname) << std::endl;
         if (matrix.at (i).first == quote (colname)) {
             return matrix.at (i).second;
         }

@@ -120,25 +120,25 @@ void update_dbs (std::ostream& out) {
     std::string navaids_db = (std::string) getenv("HOME") + (std::string) "/.flightmaster/navaids.csv";
 
     out << "downloading airports......"; out.flush ();
-	if (!download_file ("https://ourairports.com/data/airports.csv", airports_db)) {
+	if (!download_file ("https://davidmegginson.github.io/ourairports-data/airports.csv", airports_db)) {
         out << RED << "failed" << std::endl;
     } else {
         out << "latest " << get_file_date (airports_db);
     }
     out << "downloading frequencies..."; out.flush ();
-    if (!download_file ("https://ourairports.com/data/airport-frequencies.csv", frequencies_db)) {
+    if (!download_file ("https://davidmegginson.github.io/ourairports-data/airport-frequencies.csv", frequencies_db)) {
         out << RED << "failed" << std::endl;
     } else {
         out << "latest " << get_file_date (frequencies_db);
     }
     out << "downloading runways......."; out.flush ();
-    if (!download_file ("https://ourairports.com/data/runways.csv", runways_db)) {
+    if (!download_file ("https://davidmegginson.github.io/ourairports-data/runways.csv", runways_db)) {
         out << RED << "failed" << std::endl;
     } else {
         out << "latest " << get_file_date (runways_db);
     }
     out << "downloading navaids......."; out.flush ();    
-    if (!download_file ("https://ourairports.com/data/navaids.csv", navaids_db)) {
+    if (!download_file ("https://davidmegginson.github.io/ourairports-data/navaids.csv", navaids_db)) {
         out << RED << "failed" << std::endl;
     } else {
         out << "latest " << get_file_date (navaids_db);
